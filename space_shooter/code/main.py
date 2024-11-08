@@ -1,11 +1,12 @@
 import pygame
+from pygame import mixer
 from os.path import join
 from random import randint
 from datetime import timedelta
 
 
 class Laser(pygame.sprite.Sprite):
-    def __init__(self, pos, speed=600):
+    def __init__(self, pos, speed=1000):
         super().__init__()
         self.image = pygame.image.load(
             join('../images', 'laser.png')).convert_alpha()
@@ -104,6 +105,22 @@ class Game:
             (self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
         pygame.display.set_caption('Space Shooter')
 
+        # Sound setup
+        mixer.init()
+        self.laser_sound = mixer.Sound(join('../audio', 'laser.wav'))
+        self.explosion_sound = mixer.Sound(join('../audio', 'explosion.wav'))
+        self.damage_sound = mixer.Sound(join('../audio', 'damage.ogg'))
+        self.background_music = mixer.Sound(join('../audio', 'game_music.wav'))
+
+        # Set volumes
+        self.laser_sound.set_volume(0.3)
+        self.explosion_sound.set_volume(0.4)
+        self.damage_sound.set_volume(0.5)
+        self.background_music.set_volume(0.2)
+
+        # Start background music
+        self.background_music.play(-1)
+
         # Font setup
         self.font = pygame.font.Font(None, 64)
         self.small_font = pygame.font.Font(None, 32)
@@ -118,6 +135,10 @@ class Game:
         self.initialize_game()
 
     def initialize_game(self):
+        # Restart background music
+        self.background_music.stop()
+        self.background_music.play(-1)
+
         # Game state
         self.game_active = True
         self.meteors_destroyed = 0
@@ -127,9 +148,9 @@ class Game:
         self.elapsed_time = 0
 
         # Spawn timer setup
-        self.spawn_timer = 0  # Timer to track elapsed time for spawning meteors
-        self.spawn_interval = 20  # Increase amount every 20 seconds
-        self.spawn_amount = 5  # Initial spawn amount
+        self.spawn_timer = 0
+        self.spawn_interval = 20
+        self.spawn_amount = 5
 
         # Sprite groups
         self.all_sprites = pygame.sprite.Group()
@@ -144,8 +165,8 @@ class Game:
         # Background elements
         self.star_surf = pygame.image.load(
             join('../images', 'star.png')).convert_alpha()
-        self.star_positions = [(randint(0, self.WINDOW_WIDTH), randint(0, self.WINDOW_HEIGHT))
-                               for _ in range(20)]
+        self.star_positions = [(randint(0, self.WINDOW_WIDTH), randint(
+            0, self.WINDOW_HEIGHT)) for _ in range(20)]
 
         # Create initial meteors
         self.spawn_meteors(self.spawn_amount)
@@ -169,23 +190,24 @@ class Game:
             meteor_hits = pygame.sprite.spritecollide(
                 laser, self.meteor_sprites, True)
             if meteor_hits:
+                self.explosion_sound.play()
                 laser.kill()
                 self.meteors_destroyed += len(meteor_hits)
                 self.spawn_meteors(len(meteor_hits))
 
         # Check for meteor hits on player
         if pygame.sprite.spritecollide(self.player, self.meteor_sprites, False):
+            self.damage_sound.play()
+            self.background_music.stop()
             self.game_active = False
             self.final_time = self.elapsed_time
 
     def display_score(self):
-        # Display score
         score_text = f'Score: {self.meteors_destroyed}'
         score_surf = self.small_font.render(score_text, True, 'white')
         score_rect = score_surf.get_rect(topleft=(20, 20))
         self.display_surface.blit(score_surf, score_rect)
 
-        # Display timer
         if self.game_active:
             self.elapsed_time = (pygame.time.get_ticks() -
                                  self.start_time) // 1000
@@ -205,30 +227,25 @@ class Game:
         return button_surf, button_rect, text_surf, text_rect
 
     def display_game_over(self):
-        # Create game over text
         game_over_surf = self.font.render('GAME OVER', True, 'white')
         game_over_rect = game_over_surf.get_rect(
             center=(self.WINDOW_WIDTH/2, self.WINDOW_HEIGHT/2 - 150))
 
-        # Create score text
         score_text = f'Meteors Destroyed: {self.meteors_destroyed}'
         score_surf = self.font.render(score_text, True, 'white')
         score_rect = score_surf.get_rect(
             center=(self.WINDOW_WIDTH/2, self.WINDOW_HEIGHT/2 - 50))
 
-        # Create time text
         time_text = f'Survival Time: {str(timedelta(seconds=self.final_time))}'
         time_surf = self.font.render(time_text, True, 'white')
         time_rect = time_surf.get_rect(
             center=(self.WINDOW_WIDTH/2, self.WINDOW_HEIGHT/2 + 50))
 
-        # Create buttons
         retry_button, retry_rect, retry_text, retry_text_rect = self.create_button(
             'Retry', (self.WINDOW_WIDTH/2 - 120, self.WINDOW_HEIGHT/2 + 150))
         exit_button, exit_rect, exit_text, exit_text_rect = self.create_button(
             'Exit', (self.WINDOW_WIDTH/2 + 120, self.WINDOW_HEIGHT/2 + 150))
 
-        # Draw everything
         self.display_surface.blit(game_over_surf, game_over_rect)
         self.display_surface.blit(score_surf, score_rect)
         self.display_surface.blit(time_surf, time_rect)
@@ -237,9 +254,8 @@ class Game:
         self.display_surface.blit(retry_text, retry_text_rect)
         self.display_surface.blit(exit_text, exit_text_rect)
 
-        # Handle button clicks
         mouse_pos = pygame.mouse.get_pos()
-        mouse_clicked = pygame.mouse.get_pressed()[0]  # Left click
+        mouse_clicked = pygame.mouse.get_pressed()[0]
 
         if mouse_clicked:
             if retry_rect.collidepoint(mouse_pos):
@@ -261,7 +277,6 @@ class Game:
         while running:
             dt = self.clock.tick(60) / 1000
 
-            # Event loop
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
@@ -269,6 +284,7 @@ class Game:
             if self.game_active:
                 # Shooting
                 if self.player.shoot():
+                    self.laser_sound.play()
                     laser = Laser(self.player.rect.midtop)
                     self.laser_sprites.add(laser)
                     self.all_sprites.add(laser)
@@ -276,19 +292,17 @@ class Game:
                 # Update spawn timer
                 self.spawn_timer += dt
                 if self.spawn_timer >= self.spawn_interval:
-                    self.spawn_timer = 0  # Reset the timer
-                    self.spawn_amount += 2  # Increase spawn amount by 2
-                    self.spawn_meteors(self.spawn_amount)  # Spawn meteors
+                    self.spawn_timer = 0
+                    self.spawn_amount += 2
+                    self.spawn_meteors(self.spawn_amount)
 
-                    # Handle the announcement for next level
                     if not self.show_announcement:
                         self.show_announcement = True
-                        self.announcement_time = pygame.time.get_ticks()  # Reset the announcement timer
+                        self.announcement_time = pygame.time.get_ticks()
 
-                # Update the announcement visibility
                 if self.show_announcement:
-                    if pygame.time.get_ticks() - self.announcement_time >= 2000:  # 2 seconds
-                        self.show_announcement = False  # Hide the announcement after 2 seconds
+                    if pygame.time.get_ticks() - self.announcement_time >= 2000:
+                        self.show_announcement = False
 
                 # Update
                 self.all_sprites.update(dt)
@@ -318,6 +332,7 @@ class Game:
             pygame.display.update()
 
         pygame.quit()
+        mixer.quit()
 
 
 if __name__ == '__main__':
