@@ -8,7 +8,7 @@ A collection of games implemented using Pygame, starting with an exciting Space 
 ### Space Shooter
 Navigate through space, dodge enemy ships, and blast your way to victory in this classic arcade-style space shooter game.
 
-![Space Shooter Game](space-shooter/images/game_preview.png) [Note: Add your game screenshot here]
+![Space Shooter Game](space-shooter/images/game_preview.png) 
 
 ## 🛠️ Project Structure
 
